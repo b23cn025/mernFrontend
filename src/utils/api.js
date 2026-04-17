@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' }
+  baseURL: 'https://mernbackend-g2q9.onrender.com/api',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true
 });
 
 // Add token from localStorage on every request
