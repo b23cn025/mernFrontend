@@ -133,12 +133,7 @@ export default function LoginPage() {
             {isRegister ? t('login') : t('register')}
           </button>
         </p>
-
-        {/* Demo hint */}
-        <div className="mt-4 p-3 rounded-lg text-xs text-center"
-          style={{ background: 'rgba(108,99,255,0.1)', color: '#a0aec0' }}>
-          Admin: <strong className="text-purple-400">admin@fitnesspass.com</strong> / <strong className="text-purple-400">admin123</strong>
-        </div>
+        
       </div>
     </div>
   );
