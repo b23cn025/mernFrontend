@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://mernbackend-g2q9.onrender.com/api',
+  baseURL: import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : 'https://mernbackend-g2q9.onrender.com/api'),
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true
 });

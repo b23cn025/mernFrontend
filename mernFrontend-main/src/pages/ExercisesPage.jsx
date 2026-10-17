@@ -11,6 +11,21 @@ const DIFFICULTIES = ['All', 'Beginner', 'Intermediate', 'Advanced'];
 
 const diffBadge = { Beginner: 'badge-green', Intermediate: 'badge-yellow', Advanced: 'badge-red' };
 
+function getYoutubeVideoId(value) {
+  if (!value || typeof value !== 'string') return null;
+  const trimmedValue = value.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmedValue)) return trimmedValue;
+
+  try {
+    const url = new URL(trimmedValue);
+    if (url.hostname === 'youtu.be') return url.pathname.slice(1).match(/^[a-zA-Z0-9_-]{11}$/)?.[0] || null;
+    if (url.pathname === '/watch') return url.searchParams.get('v')?.match(/^[a-zA-Z0-9_-]{11}$/)?.[0] || null;
+    return url.pathname.match(/^\/(?:embed|shorts)\/([a-zA-Z0-9_-]{11})/)?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
 function ExerciseModal({ exercise, onClose, isPremium }) {
   const { t } = useTranslation();
   const lang = i18n.language;
@@ -35,7 +50,7 @@ function ExerciseModal({ exercise, onClose, isPremium }) {
     );
   }
 
-  const videoId = exercise.youtubeUrl?.split('v=')[1]?.split('&')[0];
+  const videoId = getYoutubeVideoId(exercise.youtubeUrl);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -100,6 +115,7 @@ export default function ExercisesPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
 
   // Check if user has premium or daily subscription
@@ -123,7 +139,10 @@ export default function ExercisesPage() {
   };
 
   useEffect(() => {
-    api.get('/exercises').then(r => { setExercises(r.data); setFiltered(r.data); }).finally(() => setLoading(false));
+    api.get('/exercises')
+      .then(r => { setExercises(r.data); setFiltered(r.data); })
+      .catch(() => setError('Unable to load exercises. Please try again.'))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -242,10 +261,12 @@ export default function ExercisesPage() {
             )}
             {loading ? (
               <div className="flex justify-center py-20"><div className="spinner" /></div>
+            ) : error ? (
+              <div className="glass rounded-2xl p-8 text-center text-red-300">{error}</div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filtered.map(ex => {
-                  const videoId = ex.youtubeUrl?.split('v=')[1]?.split('&')[0] || ex.youtubeUrl?.match(/embed\/(\w+)/)?.[1];
+                  const videoId = getYoutubeVideoId(ex.youtubeUrl);
                   return (
                     <div key={ex._id}
                       onClick={() => isPremium && setSelected(ex)}

@@ -4,9 +4,23 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import api from '../utils/api';
-import YouTube from 'react-youtube';
 
 const diffBadge = { Beginner: 'badge-green', Intermediate: 'badge-yellow', Advanced: 'badge-red' };
+
+function getYoutubeVideoId(value) {
+  if (!value || typeof value !== 'string') return null;
+  const trimmedValue = value.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmedValue)) return trimmedValue;
+
+  try {
+    const url = new URL(trimmedValue);
+    if (url.hostname === 'youtu.be') return url.pathname.slice(1).match(/^[a-zA-Z0-9_-]{11}$/)?.[0] || null;
+    if (url.pathname === '/watch') return url.searchParams.get('v')?.match(/^[a-zA-Z0-9_-]{11}$/)?.[0] || null;
+    return url.pathname.match(/^\/(?:embed|shorts)\/([a-zA-Z0-9_-]{11})/)?.[1] || null;
+  } catch {
+    return null;
+  }
+}
 
 // Step 2: Exercise Details & Execution View
 function ExerciseExecutor({ exercise, workoutIndex, totalExercises, onComplete, onSkip }) {
@@ -24,7 +38,7 @@ function ExerciseExecutor({ exercise, workoutIndex, totalExercises, onComplete, 
   }, [running]);
 
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  const videoId = exercise?.youtubeUrl?.match(/(?:youtube\.com\/embed\/|youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1];
+  const videoId = getYoutubeVideoId(exercise?.youtubeUrl);
 
   return (
     <div className="glass rounded-2xl p-8 max-w-3xl mx-auto">
@@ -146,6 +160,8 @@ function WorkoutDetail({ workout, onComplete, onBack, completing }) {
   const [totalTime, setTotalTime] = useState(0);
 
   const hasPremiumAccess = user?.subscription?.status === 'active' && user?.subscription?.plan !== 'free';
+  const workoutVideoId = getYoutubeVideoId(workout.youtubeVideoId)
+    || getYoutubeVideoId(workout.exercises?.[0]?.youtubeUrl);
 
   if (startWorkout && workout.exercises && workout.exercises.length > 0) {
     return (
@@ -223,11 +239,11 @@ function WorkoutDetail({ workout, onComplete, onBack, completing }) {
           ) : (
             <>
               {/* YouTube Video if available and either free or unlocked premium */}
-              {workout.youtubeVideoId && (
+              {workoutVideoId && (
                 <div className="mb-6 overflow-hidden rounded-2xl" style={{ border: '1px solid var(--border)', aspectRatio: '16/9' }}>
                   <iframe
                     width="100%" height="100%"
-                    src={`https://www.youtube.com/embed/${workout.youtubeVideoId}?modestbranding=1`}
+                    src={`https://www.youtube.com/embed/${workoutVideoId}?modestbranding=1`}
                     title={workout.title}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -279,6 +295,7 @@ export default function WorkoutsPage() {
   const [workouts, setWorkouts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [completing, setCompleting] = useState(false);
   const [success, setSuccess] = useState(null);
   const [goalFilter, setGoalFilter] = useState('All');
@@ -287,7 +304,12 @@ export default function WorkoutsPage() {
 
   useEffect(() => {
     const q = goalFilter !== 'All' ? `?goal=${goalFilter}` : '';
-    api.get(`/workouts${q}`).then(r => setWorkouts(r.data)).finally(() => setLoading(false));
+    setLoading(true);
+    setError('');
+    api.get(`/workouts${q}`)
+      .then(r => setWorkouts(r.data))
+      .catch(() => setError('Unable to load workouts. Please try again.'))
+      .finally(() => setLoading(false));
   }, [goalFilter]);
 
   const handleComplete = async (workoutId, duration) => {
@@ -337,6 +359,8 @@ export default function WorkoutsPage() {
 
             {loading ? (
               <div className="flex justify-center py-20"><div className="spinner" /></div>
+            ) : error ? (
+              <div className="glass rounded-2xl p-8 text-center text-red-300">{error}</div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {workouts.map(w => (
